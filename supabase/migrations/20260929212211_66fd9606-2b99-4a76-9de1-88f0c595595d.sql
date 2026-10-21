@@ -1,0 +1,1 @@
+UPDATE public.tontine_invitations SET status = 'obsolete' WHERE status = 'pending';

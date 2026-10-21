@@ -1,0 +1,295 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+/*
+ * ZUKA PAY design system — "Lagoon Ledger"
+ * All colors are oklch semantic tokens. Never hardcode colors in components.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ZUKA PAY brand */
+  --color-lagoon: var(--lagoon);
+  --color-lagoon-foreground: var(--lagoon-foreground);
+  --color-deep: var(--deep);
+  --color-logo: var(--logo);
+  --color-coral: var(--coral);
+  --color-mint: var(--mint);
+  --color-mint-foreground: var(--mint-foreground);
+  --color-coral-foreground: var(--coral-foreground);
+  --color-ink: var(--ink);
+  --color-line: var(--line);
+  --color-splash: var(--splash);
+
+  /* Payment statuses */
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-wait: var(--wait);
+}
+
+:root {
+  --radius: 0.9rem;
+
+  --background: oklch(0.977 0.004 175);
+  --foreground: oklch(0.225 0.006 175);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.225 0.006 175);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.225 0.006 175);
+  --primary: oklch(0.665 0.121 170);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.945 0.015 172);
+  --secondary-foreground: oklch(0.276 0.043 173);
+  --muted: oklch(0.945 0.015 172);
+  --muted-foreground: oklch(0.535 0.017 175);
+  --accent: oklch(0.945 0.015 172);
+  --accent-foreground: oklch(0.276 0.043 173);
+  --destructive: oklch(0.565 0.185 29.8);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.928 0.011 172);
+  --input: oklch(0.928 0.011 172);
+  --ring: oklch(0.665 0.121 170);
+
+  --lagoon: oklch(0.665 0.121 170);
+  --lagoon-foreground: oklch(1 0 0);
+  --deep: oklch(0.276 0.043 173);
+  --logo: oklch(0.34 0.045 170);
+  --coral: oklch(0.665 0.121 170);
+  --mint: oklch(0.81 0.093 174);
+  --mint-foreground: oklch(0.276 0.043 173);
+  --coral-foreground: oklch(1 0 0);
+  --ink: oklch(0.225 0.006 175);
+  --line: oklch(0.928 0.011 172);
+  --splash: oklch(1 0 0);
+
+  --ok: oklch(0.62 0.13 160);
+  --warn: oklch(0.72 0.14 66);
+  --bad: oklch(0.565 0.185 29.8);
+  --wait: oklch(0.649 0.028 221.8);
+
+  --gradient-lagoon: linear-gradient(165deg, oklch(0.33 0.05 173) 0%, oklch(0.246 0.038 173) 100%);
+  --gradient-emerald: linear-gradient(135deg, oklch(0.73 0.114 171) 0%, oklch(0.63 0.117 169) 100%);
+  --shadow-card: 0 1px 2px color-mix(in oklab, oklch(0.276 0.043 173) 6%, transparent),
+    0 12px 28px -18px color-mix(in oklab, oklch(0.276 0.043 173) 45%, transparent);
+  --stripes: repeating-linear-gradient(
+    105deg,
+    transparent 0 22px,
+    color-mix(in oklab, white 6%, transparent) 22px 24px
+  );
+}
+
+.dark {
+  --background: oklch(0.165 0.014 174);
+  --foreground: oklch(0.94 0.008 174);
+  --card: oklch(0.215 0.018 174);
+  --card-foreground: oklch(0.94 0.008 174);
+  --popover: oklch(0.225 0.019 174);
+  --popover-foreground: oklch(0.94 0.008 174);
+  --primary: oklch(0.62 0.115 169);
+  --primary-foreground: oklch(0.98 0.004 174);
+  --secondary: oklch(0.27 0.025 173);
+  --secondary-foreground: oklch(0.91 0.012 173);
+  --muted: oklch(0.255 0.018 174);
+  --muted-foreground: oklch(0.72 0.016 174);
+  --accent: oklch(0.29 0.032 171);
+  --accent-foreground: oklch(0.94 0.008 174);
+  --destructive: oklch(0.67 0.18 29.8);
+  --destructive-foreground: oklch(0.98 0.004 29.8);
+  --border: oklch(0.325 0.022 173);
+  --input: oklch(0.305 0.022 173);
+  --ring: oklch(0.715 0.12 169);
+
+  --lagoon: oklch(0.68 0.112 169);
+  --lagoon-foreground: oklch(0.13 0.018 174);
+  --deep: oklch(0.22 0.035 173);
+  --logo: oklch(1 0 0);
+  --coral: oklch(0.62 0.115 169);
+  --mint: oklch(0.78 0.091 173);
+  --mint-foreground: oklch(0.15 0.02 174);
+  --coral-foreground: oklch(0.98 0.004 174);
+  --ink: oklch(0.11 0.012 174);
+  --line: oklch(0.325 0.022 173);
+  --splash: oklch(1 0 0);
+
+  --ok: oklch(0.73 0.14 157);
+  --warn: oklch(0.79 0.14 73);
+  --bad: oklch(0.71 0.17 28);
+  --wait: oklch(0.72 0.06 221.8);
+
+  --gradient-lagoon: linear-gradient(165deg, oklch(0.24 0.038 173) 0%, oklch(0.18 0.025 173) 100%);
+  --gradient-emerald: linear-gradient(135deg, oklch(0.59 0.112 170) 0%, oklch(0.45 0.09 170) 100%);
+  --shadow-card: 0 1px 2px color-mix(in oklab, var(--ink) 30%, transparent),
+    0 14px 30px -20px color-mix(in oklab, var(--ink) 75%, transparent);
+  --stripes: repeating-linear-gradient(
+    105deg,
+    transparent 0 22px,
+    color-mix(in oklab, var(--primary-foreground) 6%, transparent) 22px 24px
+  );
+}
+
+.dark .text-deep {
+  color: var(--foreground);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 240ms ease, color 240ms ease;
+  }
+
+  button,
+  input,
+  textarea,
+  select,
+  [role="dialog"],
+  [role="menu"] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 240ms;
+    transition-timing-function: ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@utility bg-gradient-lagoon {
+  background-image: var(--gradient-lagoon);
+}
+
+@utility bg-gradient-emerald {
+  background-image: var(--gradient-emerald);
+}
+
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility pressable {
+  transition:
+    transform 0.18s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.18s ease;
+  &:active {
+    transform: scale(0.975);
+    opacity: 0.9;
+  }
+}
+
+@utility safe-top {
+  padding-top: max(env(safe-area-inset-top), 0.5rem);
+}
+
+@utility safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.25rem);
+}
+
+@utility bg-stripes {
+  background-image: var(--stripes);
+}
+
+@keyframes zuki-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes zuka-splash-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.zuka-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background-color: var(--splash);
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+
+.zuka-splash--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.zuka-splash__logo {
+  width: clamp(11.5rem, 46vw, 17.5rem);
+  height: auto;
+  object-fit: contain;
+  will-change: opacity, transform;
+  animation: zuka-splash-enter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-rise {
+  animation: zuki-rise 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@utility input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--input);
+  background-color: var(--background);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
