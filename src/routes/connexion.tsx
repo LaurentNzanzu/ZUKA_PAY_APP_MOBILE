@@ -1,12 +1,13 @@
 import { translateError } from "@/lib/i18n/errors";
 import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, LoaderCircle, Smartphone } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, CheckCircle2, LoaderCircle, MessageSquare, RotateCcw, Smartphone } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import splashLogo from "@/assets/zuka-pay-splash-logo.jpeg.asset.json";
+import zukaLogo from "@/assets/zuka-logo.png";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { startTestSession } from "@/lib/auth/dev-login.functions";
+import { sendOtp, verifyOtp } from "@/lib/auth/otp.functions";
 import { isTestAccessHost, TEST_ACCESS_ENABLED } from "@/lib/auth/test-access";
 import { takePendingInvite } from "@/lib/tontines/pendingInvite";
 
@@ -29,11 +30,19 @@ import { useI18n, type Tri } from "@/lib/i18n";
 
 function ConnectionPage() {
   const hydrated = useHydrated();
-  if (hydrated && TEST_ACCESS_ENABLED && isTestAccessHost(window.location.hostname)) return <TestAccess />;
-  return <PhoneLogin />;
+  const [showPhoneLogin, setShowPhoneLogin] = useState(false);
+  if (hydrated && TEST_ACCESS_ENABLED && isTestAccessHost(window.location.hostname) && !showPhoneLogin) {
+    return <TestAccess onUsePhone={() => setShowPhoneLogin(true)} />;
+  }
+  return (
+    <PhoneLogin
+      onBackToTest={() => setShowPhoneLogin(false)}
+      showBackToTest={Boolean(hydrated && TEST_ACCESS_ENABLED && typeof window !== "undefined" && isTestAccessHost(window.location.hostname))}
+    />
+  );
 }
 
-function TestAccess() {
+function TestAccess({ onUsePhone }: { onUsePhone?: () => void }) {
   const navigate = useNavigate({ from: "/connexion" });
   const goHome = () => {
     const invite = takePendingInvite();
@@ -61,7 +70,7 @@ function TestAccess() {
     <main className="safe-top safe-bottom flex min-h-dvh items-center justify-center bg-background px-5 py-8">
       <section className="w-full max-w-sm text-center" aria-labelledby="login-title">
         <div className="mx-auto grid size-20 place-items-center overflow-hidden rounded-2xl bg-splash shadow-card">
-          <img src={splashLogo.url} alt="" width={1536} height={1707} className="h-full w-full object-cover" />
+          <img src={zukaLogo} alt="ZUKA PAY" width={1536} height={1707} className="h-full w-full object-cover" />
         </div>
         <p className="mt-7 font-display text-sm font-bold text-primary">ZUKA PAY</p>
         <h1 id="login-title" className="mt-2 font-display text-2xl font-bold text-foreground">{L({ fr: "Connexion", en: "Sign in", sw: "Ingia" })}</h1>
@@ -69,6 +78,21 @@ function TestAccess() {
           {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {L({ fr: "Accéder à l’application", en: "Open the app", sw: "Fungua programu" })}
         </Button>
+        {onUsePhone && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onUsePhone}
+            className="mt-3 h-10 w-full rounded-xl text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Smartphone className="mr-1.5 size-3.5" aria-hidden="true" />
+            {L({
+              fr: "Connexion par numéro (WhatsApp / SMS)",
+              en: "Sign in with phone number (WhatsApp / SMS)",
+              sw: "Ingia kwa namba ya simu (WhatsApp / SMS)",
+            })}
+          </Button>
+        )}
       </section>
     </main>
   );
@@ -84,26 +108,79 @@ function normalizePhone(value: string) {
   return `+243${compact}`;
 }
 
-/** Traduit les erreurs Supabase Auth en messages compréhensibles. */
-function otpErrorText(L: (m: Tri) => string, error: { message: string; code?: string | undefined; status?: number | undefined }) {
-  const code = error.code ?? "";
-  const message = error.message.toLowerCase();
-  if (code === "phone_provider_disabled" || message.includes("unsupported phone provider")) {
-    return L({ fr: "La connexion par SMS n'est pas encore activée sur ce compte ZUKA PAY. Le service d'envoi de SMS doit être configuré par l'administrateur avant de pouvoir recevoir un code.", en: "SMS sign-in is not yet enabled for ZUKA PAY. The administrator must configure the SMS service before you can receive a code.", sw: "Kuingia kwa SMS bado hakujawashwa kwenye ZUKA PAY. Msimamizi lazima asanidi huduma ya SMS kabla ya kupokea namba." });
+/** Traduit les erreurs de l'authentification OTP en messages compréhensibles pour l'utilisateur. */
+function formatOtpError(L: (m: Tri) => string, code: string, retryAfter?: number): string {
+  switch (code) {
+    case "INVALID_PHONE":
+      return L({
+        fr: "Ce numéro n'est pas valide. Utilisez le format +243 8XX XXX XXX.",
+        en: "This phone number is not valid. Use the format +243 8XX XXX XXX.",
+        sw: "Namba hii ya simu si sahihi. Tumia muundo +243 8XX XXX XXX.",
+      });
+    case "COOLDOWN":
+      return L({
+        fr: `Veuillez patienter ${retryAfter ?? 60} secondes avant de demander un nouveau code.`,
+        en: `Please wait ${retryAfter ?? 60} seconds before requesting a new code.`,
+        sw: `Tafadhali subiri sekunde ${retryAfter ?? 60} kabla ya kuomba namba mpya.`,
+      });
+    case "PHONE_LIMIT":
+      return L({
+        fr: "Limite quotidienne de demandes de code atteinte pour ce numéro. Réessayez demain.",
+        en: "Daily code request limit reached for this number. Try again tomorrow.",
+        sw: "Kikomo cha kila siku cha maombi ya namba kimefikiwa kwa namba hii. Jaribu tena kesho.",
+      });
+    case "IP_LIMIT":
+      return L({
+        fr: "Trop de demandes depuis votre connexion réseau. Réessayez dans une heure.",
+        en: "Too many requests from your network connection. Try again in an hour.",
+        sw: "Maombi mengi sana kutoka kwa mtandao wako. Jaribu tena baada ya saa moja.",
+      });
+    case "GLOBAL_LIMIT":
+      return L({
+        fr: "Le service d'authentification est temporairement saturé. Réessayez dans quelques instants.",
+        en: "The authentication service is temporarily overloaded. Please try again shortly.",
+        sw: "Huduma ya uthibitisho imelemewa kwa sasa. Jaribu tena baada ya muda mfupi.",
+      });
+    case "SEND_FAILED":
+      return L({
+        fr: "Impossible d'envoyer le code pour le moment. Vérifiez votre numéro et réessayez.",
+        en: "Could not send the code at this time. Check your number and try again.",
+        sw: "Imeshindwa kutuma namba kwa sasa. Angalia namba yako kisha ujaribu tena.",
+      });
+    case "INVALID_CODE_FORMAT":
+      return L({
+        fr: "Le code de confirmation doit comporter exactement 6 chiffres.",
+        en: "The confirmation code must be exactly 6 digits.",
+        sw: "Namba ya uthibitisho lazima iwe na tarakimu 6 kamili.",
+      });
+    case "INVALID_OR_EXPIRED":
+      return L({
+        fr: "Code incorrect ou expiré. Vérifiez le code reçu ou demandez-en un nouveau.",
+        en: "Incorrect or expired code. Check the code you received or request a new one.",
+        sw: "Namba si sahihi au imeisha muda. Angalia namba uliyopokea au uombe mpya.",
+      });
+    case "TOO_MANY_ATTEMPTS":
+      return L({
+        fr: "Trop de tentatives incorrectes. Ce code a été invalidé, veuillez en demander un nouveau.",
+        en: "Too many incorrect attempts. This code has been invalidated, please request a new one.",
+        sw: "Majaribio mengi yasiyo sahihi. Namba hii imebatilishwa, tafadhali omba mpya.",
+      });
+    case "SESSION_FAILED":
+      return L({
+        fr: "Impossible d'établir la session de connexion. Veuillez réessayer ou contacter le support.",
+        en: "Could not establish the login session. Please try again or contact support.",
+        sw: "Imeshindwa kufungua kipindi cha kuingia. Tafadhali jaribu tena au wasiliana na usaidizi.",
+      });
+    default:
+      return L({
+        fr: "Une erreur est survenue lors de l'authentification.",
+        en: "An error occurred during authentication.",
+        sw: "Hitilafu imetokea wakati wa uthibitisho.",
+      });
   }
-  if (code === "over_sms_send_rate_limit" || error.status === 429) {
-    return L({ fr: "Trop de demandes de code. Patientez quelques minutes avant de réessayer.", en: "Too many code requests. Wait a few minutes before trying again.", sw: "Maombi mengi ya namba. Subiri dakika chache kabla ya kujaribu tena." });
-  }
-  if (code === "invalid_phone" || message.includes("invalid phone")) {
-    return L({ fr: "Ce numéro n'est pas valide. Utilisez le format +243 8XX XXX XXX.", en: "This number is not valid. Use the format +243 8XX XXX XXX.", sw: "Namba hii si sahihi. Tumia muundo +243 8XX XXX XXX." });
-  }
-  if (code === "signup_disabled") {
-    return L({ fr: "Les nouvelles inscriptions sont désactivées pour le moment.", en: "New sign-ups are disabled for now.", sw: "Usajili mpya umezimwa kwa sasa." });
-  }
-  return translateError(error);
 }
 
-function PhoneLogin() {
+function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => void; showBackToTest?: boolean } = {}) {
   const navigate = useNavigate({ from: "/connexion" });
   const goHome = () => {
     const invite = takePendingInvite();
@@ -115,57 +192,173 @@ function PhoneLogin() {
   const [normalizedPhone, setNormalizedPhone] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
+  const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
+  const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setCooldown((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldown]);
+
+  async function performSendOtp(targetPhone: string) {
+    if (loading) return false;
+    setLoading(true);
+    try {
+      const res = await sendOtp({ data: { phone: targetPhone } });
+      if (!res.ok) {
+        if (res.code === "COOLDOWN" && res.retryAfter) {
+          setCooldown(res.retryAfter);
+        }
+        toast.error(
+          L({
+            fr: "Envoi du code impossible",
+            en: "Could not send the code",
+            sw: "Imeshindwa kutuma namba",
+          }),
+          { description: formatOtpError(L, res.code, res.retryAfter) }
+        );
+        return false;
+      }
+
+      setChannel(res.channel);
+      setNormalizedPhone(targetPhone);
+      setStep("code");
+      setCooldown(60);
+
+      if (res.channel === "whatsapp") {
+        toast.success(
+          L({
+            fr: "Code envoyé par WhatsApp",
+            en: "Code sent via WhatsApp",
+            sw: "Namba imetumwa kwa WhatsApp",
+          })
+        );
+      } else {
+        toast.success(
+          L({
+            fr: "Code envoyé par SMS",
+            en: "Code sent by SMS",
+            sw: "Namba imetumwa kwa SMS",
+          })
+        );
+      }
+      return true;
+    } catch (error) {
+      toast.error(
+        L({
+          fr: "Envoi du code impossible",
+          en: "Could not send the code",
+          sw: "Imeshindwa kutuma namba",
+        }),
+        { description: translateError(error) }
+      );
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function sendCode(event: React.FormEvent) {
     event.preventDefault();
     const normalized = normalizePhone(phone);
     if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-      toast.error(L({ fr: "Saisissez un numéro de téléphone valide.", en: "Enter a valid phone number.", sw: "Weka namba sahihi ya simu." }));
+      toast.error(
+        L({
+          fr: "Saisissez un numéro de téléphone valide.",
+          en: "Enter a valid phone number.",
+          sw: "Weka namba sahihi ya simu.",
+        })
+      );
       return;
     }
-
-    setLoading(true);
-    // shouldCreateUser: true => un numéro déjà enregistré réutilise le même compte,
-    // Supabase n'en crée jamais un second pour le même numéro E.164.
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: normalized,
-      options: { channel: "sms", shouldCreateUser: true },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(L({ fr: "Envoi du code impossible", en: "Could not send the code", sw: "Imeshindwa kutuma namba" }), { description: otpErrorText(L, error) });
-      return;
-    }
-    setNormalizedPhone(normalized);
-    setStep("code");
-    toast.success(L({ fr: "Code envoyé par SMS", en: "Code sent by SMS", sw: "Namba imetumwa kwa SMS" }));
+    await performSendOtp(normalized);
   }
 
+  async function handleResendCode() {
+    if (cooldown > 0 || !normalizedPhone || loading) return;
+    await performSendOtp(normalizedPhone);
+  }
 
   async function verifyCode(event: React.FormEvent) {
     event.preventDefault();
-    if (!/^\d{6}$/.test(code)) {
-      toast.error(L({ fr: "Saisissez le code à 6 chiffres.", en: "Enter the 6-digit code.", sw: "Weka namba ya tarakimu 6." }));
+    if (loading) return;
+
+    const cleanCode = code.replace(/\D/g, "");
+    if (!/^\d{6}$/.test(cleanCode)) {
+      toast.error(
+        L({
+          fr: "Saisissez le code à 6 chiffres.",
+          en: "Enter the 6-digit code.",
+          sw: "Weka namba ya tarakimu 6.",
+        })
+      );
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ phone: normalizedPhone, token: code, type: "sms" });
-    setLoading(false);
-    if (error) {
-      toast.error(L({ fr: "Code incorrect ou expiré", en: "Wrong or expired code", sw: "Namba si sahihi au imeisha muda" }), { description: otpErrorText(L, error) });
-      return;
+    try {
+      const res = await verifyOtp({
+        data: {
+          phone: normalizedPhone,
+          code: cleanCode,
+        },
+      });
+
+      if (!res.ok) {
+        toast.error(
+          L({
+            fr: "Code invalide",
+            en: "Invalid code",
+            sw: "Namba si sahihi",
+          }),
+          { description: formatOtpError(L, res.code) }
+        );
+        return;
+      }
+
+      // Établissement de la session Supabase via le tokenHash généré par le serveur
+      const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
+        token_hash: res.tokenHash,
+        type: "magiclink",
+      });
+
+      if (sessionError || !sessionData?.session) {
+        toast.error(
+          L({
+            fr: "Échec de l'ouverture de session",
+            en: "Failed to open session",
+            sw: "Imeshindwa kufungua kipindi",
+          }),
+          { description: sessionError ? translateError(sessionError) : undefined }
+        );
+        return;
+      }
+
+      toast.success(L({ fr: "Connexion réussie", en: "Signed in", sw: "Umeingia" }));
+      goHome();
+    } catch (error) {
+      toast.error(
+        L({
+          fr: "Erreur de connexion",
+          en: "Sign-in error",
+          sw: "Hitilafu ya kuingia",
+        }),
+        { description: translateError(error) }
+      );
+    } finally {
+      setLoading(false);
     }
-    toast.success(L({ fr: "Connexion réussie", en: "Signed in", sw: "Umeingia" }));
-    goHome();
   }
 
   return (
     <main className="safe-top safe-bottom flex min-h-dvh items-center justify-center bg-background px-5 py-8">
       <section className="w-full max-w-sm" aria-labelledby="login-title">
         <div className="mx-auto grid size-20 place-items-center overflow-hidden rounded-2xl bg-splash shadow-card">
-          <img src={splashLogo.url} alt="" width={1536} height={1707} className="h-full w-full object-cover" />
+          <img src={zukaLogo} alt="ZUKA PAY" width={1536} height={1707} className="h-full w-full object-cover" />
         </div>
 
         <div className="mt-7 text-center">
@@ -175,9 +368,34 @@ function PhoneLogin() {
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {step === "phone"
-              ? L({ fr: "Entrez votre numéro Mobile Money pour continuer.", en: "Enter your Mobile Money number to continue.", sw: "Weka namba yako ya Mobile Money ili kuendelea." })
-              : L({ fr: `Un code à 6 chiffres a été envoyé au ${normalizedPhone}.`, en: `A 6-digit code was sent to ${normalizedPhone}.`, sw: `Namba ya tarakimu 6 imetumwa kwa ${normalizedPhone}.` })}
+              ? L({
+                  fr: "Entrez votre numéro Mobile Money pour continuer.",
+                  en: "Enter your Mobile Money number to continue.",
+                  sw: "Weka namba yako ya Mobile Money ili kuendelea.",
+                })
+              : channel === "whatsapp"
+                ? L({
+                    fr: `Un code à 6 chiffres a été envoyé par WhatsApp au ${normalizedPhone}.`,
+                    en: `A 6-digit code was sent via WhatsApp to ${normalizedPhone}.`,
+                    sw: `Namba ya tarakimu 6 imetumwa kwa WhatsApp kwa ${normalizedPhone}.`,
+                  })
+                : L({
+                    fr: `Un code à 6 chiffres a été envoyé par SMS au ${normalizedPhone}.`,
+                    en: `A 6-digit code was sent by SMS to ${normalizedPhone}.`,
+                    sw: `Namba ya tarakimu 6 imetumwa kwa SMS kwa ${normalizedPhone}.`,
+                  })}
           </p>
+
+          {step === "code" && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <MessageSquare className="size-3.5" aria-hidden="true" />
+              <span>
+                {channel === "whatsapp"
+                  ? L({ fr: "Canal : WhatsApp", en: "Channel: WhatsApp", sw: "Njia: WhatsApp" })
+                  : L({ fr: "Canal : SMS de secours", en: "Channel: Backup SMS", sw: "Njia: SMS ya dharura" })}
+              </span>
+            </div>
+          )}
         </div>
 
         <form onSubmit={step === "phone" ? sendCode : verifyCode} className="mt-8">
@@ -225,22 +443,65 @@ function PhoneLogin() {
 
           <Button type="submit" size="lg" disabled={loading} className="mt-5 h-12 w-full rounded-xl font-semibold">
             {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {step === "phone" ? L({ fr: "Recevoir le code", en: "Get the code", sw: "Pokea namba" }) : L({ fr: "Confirmer et continuer", en: "Confirm and continue", sw: "Thibitisha na uendelee" })}
+            {step === "phone"
+              ? L({ fr: "Recevoir le code", en: "Get the code", sw: "Pokea namba" })
+              : L({ fr: "Confirmer et continuer", en: "Confirm and continue", sw: "Thibitisha na uendelee" })}
           </Button>
 
-          {step === "code" && (
+          {step === "phone" && showBackToTest && onBackToTest && (
             <Button
               type="button"
               variant="ghost"
-              onClick={() => {
-                setStep("phone");
-                setCode("");
-              }}
-              className="mt-2 w-full"
+              onClick={onBackToTest}
+              className="mt-2 h-10 w-full rounded-xl text-xs text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft aria-hidden="true" />
-              {L({ fr: "Modifier le numéro", en: "Change number", sw: "Badilisha namba" })}
+              <ArrowLeft className="mr-1.5 size-3.5" aria-hidden="true" />
+              {L({
+                fr: "Revenir à l’accès de test",
+                en: "Back to test access",
+                sw: "Rudi kwenye ufikiaji wa majaribio",
+              })}
             </Button>
+          )}
+
+          {step === "code" && (
+            <div className="mt-3 flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="default"
+                disabled={loading || cooldown > 0}
+                onClick={() => void handleResendCode()}
+                className="h-11 w-full rounded-xl text-sm font-medium"
+              >
+                <RotateCcw className="mr-2 size-4" aria-hidden="true" />
+                {cooldown > 0
+                  ? L({
+                      fr: `Renvoyer le code (${cooldown}s)`,
+                      en: `Resend code (${cooldown}s)`,
+                      sw: `Tuma namba tena (${cooldown}s)`,
+                    })
+                  : L({
+                      fr: "Renvoyer le code",
+                      en: "Resend code",
+                      sw: "Tuma namba tena",
+                    })}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={loading}
+                onClick={() => {
+                  setStep("phone");
+                  setCode("");
+                }}
+                className="h-11 w-full rounded-xl text-sm"
+              >
+                <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
+                {L({ fr: "Modifier le numéro", en: "Change number", sw: "Badilisha namba" })}
+              </Button>
+            </div>
           )}
         </form>
       </section>

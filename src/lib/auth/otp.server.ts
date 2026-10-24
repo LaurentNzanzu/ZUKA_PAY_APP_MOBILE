@@ -11,7 +11,7 @@ function requireEnv(key: string): string {
 
 // ─── 2. Configuration OTP ───────────────────────────────────────────────────
 export const OTP_CONFIG = {
-  pepper: (): string => requireEnv("OTP_PEPPER"),
+  pepper: (): string => requireEnv("OTP_PEPPER").trim(),
   ttlMinutes: (): number => Number(process.env["OTP_TTL_MINUTES"] ?? "5"),
   cooldownSeconds: (): number => Number(process.env["OTP_COOLDOWN_SECONDS"] ?? "60"),
   maxAttempts: (): number => Number(process.env["OTP_MAX_ATTEMPTS"] ?? "5"),
@@ -151,9 +151,9 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
       .replace(/^https?:\/\//, "")
       .replace(/\/$/, "");
     const apiKey = requireEnv("INFOBIP_API_KEY");
-    const from = requireEnv("INFOBIP_SENDER");
-    const templateName = process.env["INFOBIP_WA_TEMPLATE"] ?? "otp_authentication";
-    const language = process.env["INFOBIP_WA_LANG"] ?? "fr";
+    const from = requireEnv("INFOBIP_SENDER").trim();
+    const templateName = (process.env["INFOBIP_WA_TEMPLATE"] ?? "authentication").trim();
+    const language = (process.env["INFOBIP_WA_LANG"] ?? "fr").trim();
 
     const res = await fetch(`https://${baseUrl}/whatsapp/1/message/template`, {
       method: "POST",
@@ -191,6 +191,11 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
         status?: {
           groupName?: string;
           name?: string;
+          description?: string;
+        };
+        error?: {
+          name?: string;
+          description?: string;
         };
       }>;
     };
@@ -199,14 +204,16 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
     const messageId = firstMessage?.messageId;
     const statusName = firstMessage?.status?.name ?? "UNKNOWN";
     const groupName = firstMessage?.status?.groupName ?? "UNKNOWN";
+    const description = firstMessage?.status?.description ?? firstMessage?.error?.description ?? "";
 
     const successStates = ["PENDING", "DELIVERED", "SENT"];
     if (successStates.includes(statusName) || successStates.includes(groupName)) {
       return { ok: true, channel: "whatsapp", messageId: messageId ?? "unknown" };
     }
 
-    const retryable = !["MISSING_TEMPLATE", "INVALID_TEMPLATE"].includes(statusName);
-    return { ok: false, error: `WA_${statusName}`, retryable };
+    const retryable = !["MISSING_TEMPLATE", "INVALID_TEMPLATE", "REJECTED_SOURCE"].includes(statusName);
+    const errorMsg = description ? `WA_${statusName}: ${description}` : `WA_${statusName}`;
+    return { ok: false, error: errorMsg, retryable };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, retryable: true };

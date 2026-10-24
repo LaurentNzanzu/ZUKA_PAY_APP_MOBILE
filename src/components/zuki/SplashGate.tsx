@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import splashLogo from "@/assets/zuka-pay-splash-mark.png.asset.json";
+import zukaLogo from "@/assets/zuka-logo.png";
 import { CreatePinScreen, UnlockScreen } from "@/components/zuki/LockScreen";
 import { useLock } from "@/lib/security/LockProvider";
 import { cn } from "@/lib/utils";
@@ -65,7 +65,7 @@ export function SplashGate({ children }: { children: ReactNode }) {
           aria-label={pick(currentLang(), { fr: "Chargement de ZUKA PAY", en: "Loading ZUKA PAY", sw: "Inapakia ZUKA PAY" })}
         >
           <img
-            src={splashLogo.url}
+            src={zukaLogo}
             alt="ZUKA PAY"
             width={960}
             height={1093}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Fingerprint, LoaderCircle, ScanFace, ShieldCheck } from "lucide-react";
-import splashLogo from "@/assets/zuka-pay-splash-logo.jpeg.asset.json";
+import zukaLogo from "@/assets/zuka-logo.png";
 import { Button } from "@/components/ui/button";
 import { PinDots, PinPad } from "@/components/zuki/PinPad";
 import { useI18n } from "@/lib/i18n";
@@ -22,7 +22,7 @@ function Frame({ title, subtitle, children }: { title: string; subtitle: string;
     <main className="safe-top safe-bottom fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-background px-5 py-8">
       <div className="w-full max-w-sm">
         <div className="mx-auto grid size-16 place-items-center overflow-hidden rounded-2xl bg-splash shadow-card">
-          <img src={splashLogo.url} alt="" width={1536} height={1707} className="h-full w-full object-cover" />
+          <img src={zukaLogo} alt="ZUKA PAY" width={1536} height={1707} className="h-full w-full object-cover" />
         </div>
         <div className="mt-6 text-center">
           <h1 className="font-display text-xl font-bold text-foreground">{title}</h1>
@@ -225,13 +225,22 @@ export function CreatePinScreen() {
       }
 
       setBusy(true);
-      await createPin(value);
-      setBusy(false);
-      if (bioAvailable && userId) {
-        setStep("bio");
-        return;
+      try {
+        await createPin(value);
+        if (bioAvailable && userId) {
+          setStep("bio");
+          return;
+        }
+        markUnlocked();
+      } catch (err) {
+        console.error("Erreur lors de la création du code PIN:", err);
+        setError(tx.wrong || "Une erreur est survenue lors de l'enregistrement");
+        setPin("");
+        setFirst("");
+        setStep("create");
+      } finally {
+        setBusy(false);
       }
-      markUnlocked();
     },
     [bioAvailable, createPin, first, markUnlocked, step, tx, userId],
   );

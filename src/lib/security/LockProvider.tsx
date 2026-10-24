@@ -109,8 +109,14 @@ export function LockProvider({ children }: { children: ReactNode }) {
       displayName,
       markUnlocked: () => setStatus("unlocked"),
       createPin: async (pin: string) => {
-        if (!userId) throw new Error("NO_SESSION");
-        await persistPin(userId, pin);
+        let uid = userId;
+        if (!uid) {
+          const { data } = await supabase.auth.getSession();
+          uid = data.session?.user?.id ?? null;
+          if (uid) setUserId(uid);
+        }
+        if (!uid) throw new Error("NO_SESSION");
+        await persistPin(uid, pin);
         setStatus("unlocked");
       },
       startPinChange: () => {
