@@ -1,3 +1,10 @@
+# Zuka Pay - Par Ruxium
+Application mobile développée et éditée par **Ruxium** (Goma, RDC).
+Solutions logicielles et services numériques.
+
+
+
+
 #« Projet officiel développé par Ruxium – Goma, RDC »).
 
 
