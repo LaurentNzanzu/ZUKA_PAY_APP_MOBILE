@@ -150,16 +150,20 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
     const baseUrl = requireEnv("INFOBIP_BASE_URL")
       .replace(/^https?:\/\//, "")
       .replace(/\/$/, "");
-    const apiKey = requireEnv("INFOBIP_API_KEY");
+    const apiKey = requireEnv("INFOBIP_API_KEY").trim();
     const from = requireEnv("INFOBIP_SENDER").trim();
-    const templateName = (process.env["INFOBIP_WA_TEMPLATE"] ?? "authentication").trim();
+    const templateName = (process.env["INFOBIP_WA_TEMPLATE"] ?? "otp_verification_code").trim();
     const language = (process.env["INFOBIP_WA_LANG"] ?? "fr").trim();
+    // Option : si votre modèle Infobip a été créé sans bouton Copy Code / URL dynamique,
+    // passez INFOBIP_WA_HAS_BUTTON="false" dans .env ou commentez la ligne de boutons ci-dessous.
+    const hasButton = process.env["INFOBIP_WA_HAS_BUTTON"] !== "false";
 
     const res = await fetch(`https://${baseUrl}/whatsapp/1/message/template`, {
       method: "POST",
       headers: {
         Authorization: `App ${apiKey}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         messages: [
@@ -170,7 +174,9 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
               templateName,
               templateData: {
                 body: { placeholders: [otp] },
-                buttons: [{ type: "URL", parameter: otp }],
+                // 💡 Si votre template Infobip n'a PAS de bouton Copy Code / URL dynamique,
+                // définissez INFOBIP_WA_HAS_BUTTON="false" dans .env ou commentez la ligne suivante :
+                ...(hasButton ? { buttons: [{ type: "URL", parameter: otp }] } : {}),
               },
               language,
             },
@@ -182,7 +188,12 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
 
     if (!res.ok) {
       const retryable = res.status !== 401 && res.status !== 403;
-      return { ok: false, error: `WA_HTTP_${res.status}`, retryable };
+      const errorBody = await res.text().catch(() => "");
+      return {
+        ok: false,
+        error: `WA_HTTP_${res.status}: ${errorBody || res.statusText}`,
+        retryable,
+      };
     }
 
     const data = (await res.json()) as {
@@ -226,7 +237,7 @@ export async function sendViaSMS(phone: string, otp: string): Promise<SendResult
     const baseUrl = requireEnv("INFOBIP_BASE_URL")
       .replace(/^https?:\/\//, "")
       .replace(/\/$/, "");
-    const apiKey = requireEnv("INFOBIP_API_KEY");
+    const apiKey = requireEnv("INFOBIP_API_KEY").trim();
     const from = process.env["INFOBIP_SMS_SENDER"] ?? "ZUKAPAY";
 
     const res = await fetch(`https://${baseUrl}/sms/2/text/advanced`, {
@@ -234,6 +245,7 @@ export async function sendViaSMS(phone: string, otp: string): Promise<SendResult
       headers: {
         Authorization: `App ${apiKey}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         messages: [

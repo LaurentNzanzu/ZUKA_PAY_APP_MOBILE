@@ -1,6 +1,13 @@
 import { translateError } from "@/lib/i18n/errors";
 import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, LoaderCircle, MessageSquare, RotateCcw, Smartphone } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  LoaderCircle,
+  MessageSquare,
+  RotateCcw,
+  Smartphone,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import zukaLogo from "@/assets/zuka-logo.png";
@@ -31,13 +38,23 @@ import { useI18n, type Tri } from "@/lib/i18n";
 function ConnectionPage() {
   const hydrated = useHydrated();
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
-  if (hydrated && TEST_ACCESS_ENABLED && isTestAccessHost(window.location.hostname) && !showPhoneLogin) {
+  if (
+    hydrated &&
+    TEST_ACCESS_ENABLED &&
+    isTestAccessHost(window.location.hostname) &&
+    !showPhoneLogin
+  ) {
     return <TestAccess onUsePhone={() => setShowPhoneLogin(true)} />;
   }
   return (
     <PhoneLogin
       onBackToTest={() => setShowPhoneLogin(false)}
-      showBackToTest={Boolean(hydrated && TEST_ACCESS_ENABLED && typeof window !== "undefined" && isTestAccessHost(window.location.hostname))}
+      showBackToTest={Boolean(
+        hydrated &&
+        TEST_ACCESS_ENABLED &&
+        typeof window !== "undefined" &&
+        isTestAccessHost(window.location.hostname),
+      )}
     />
   );
 }
@@ -46,7 +63,8 @@ function TestAccess({ onUsePhone }: { onUsePhone?: () => void }) {
   const navigate = useNavigate({ from: "/connexion" });
   const goHome = () => {
     const invite = takePendingInvite();
-    if (invite) void navigate({ to: "/rejoindre/$token", params: { token: invite }, replace: true });
+    if (invite)
+      void navigate({ to: "/rejoindre/$token", params: { token: invite }, replace: true });
     else void navigate({ to: "/", replace: true });
   };
   const { L } = useI18n();
@@ -60,7 +78,14 @@ function TestAccess({ onUsePhone }: { onUsePhone?: () => void }) {
       if (error) throw error;
       goHome();
     } catch (error) {
-      toast.error(L({ fr: "Accès de test indisponible", en: "Test access unavailable", sw: "Ufikiaji wa majaribio haupatikani" }), { description: translateError(error) });
+      toast.error(
+        L({
+          fr: "Accès de test indisponible",
+          en: "Test access unavailable",
+          sw: "Ufikiaji wa majaribio haupatikani",
+        }),
+        { description: translateError(error) },
+      );
     } finally {
       setLoading(false);
     }
@@ -70,11 +95,25 @@ function TestAccess({ onUsePhone }: { onUsePhone?: () => void }) {
     <main className="safe-top safe-bottom flex min-h-dvh items-center justify-center bg-background px-5 py-8">
       <section className="w-full max-w-sm text-center" aria-labelledby="login-title">
         <div className="mx-auto grid size-20 place-items-center overflow-hidden rounded-2xl bg-splash shadow-card">
-          <img src={zukaLogo} alt="ZUKA PAY" width={1536} height={1707} className="h-full w-full object-cover" />
+          <img
+            src={zukaLogo}
+            alt="ZUKA PAY"
+            width={1536}
+            height={1707}
+            className="h-full w-full object-cover"
+          />
         </div>
         <p className="mt-7 font-display text-sm font-bold text-primary">ZUKA PAY</p>
-        <h1 id="login-title" className="mt-2 font-display text-2xl font-bold text-foreground">{L({ fr: "Connexion", en: "Sign in", sw: "Ingia" })}</h1>
-        <Button type="button" size="lg" disabled={loading} onClick={() => void enter()} className="mt-8 h-12 w-full rounded-xl font-semibold">
+        <h1 id="login-title" className="mt-2 font-display text-2xl font-bold text-foreground">
+          {L({ fr: "Connexion", en: "Sign in", sw: "Ingia" })}
+        </h1>
+        <Button
+          type="button"
+          size="lg"
+          disabled={loading}
+          onClick={() => void enter()}
+          className="mt-8 h-12 w-full rounded-xl font-semibold"
+        >
           {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {L({ fr: "Accéder à l’application", en: "Open the app", sw: "Fungua programu" })}
         </Button>
@@ -101,11 +140,11 @@ function TestAccess({ onUsePhone }: { onUsePhone?: () => void }) {
 /** Normalise un numéro saisi vers le format international E.164 (RDC par défaut). */
 function normalizePhone(value: string) {
   let compact = value.replace(/[^\d+]/g, "");
-  if (compact.startsWith("00")) compact = `+${compact.slice(2)}`;
-  if (compact.startsWith("+")) return compact;
-  if (compact.startsWith("243")) return `+${compact}`;
-  if (compact.startsWith("0")) return `+243${compact.slice(1)}`;
-  return `+243${compact}`;
+  if (compact.startsWith("00")) compact = compact.slice(2);
+  if (compact.startsWith("+")) compact = compact.slice(1);
+  if (compact.startsWith("243")) return compact;
+  if (compact.startsWith("0")) return `243${compact.slice(1)}`;
+  return `243${compact}`;
 }
 
 /** Traduit les erreurs de l'authentification OTP en messages compréhensibles pour l'utilisateur. */
@@ -125,9 +164,9 @@ function formatOtpError(L: (m: Tri) => string, code: string, retryAfter?: number
       });
     case "PHONE_LIMIT":
       return L({
-        fr: "Limite quotidienne de demandes de code atteinte pour ce numéro. Réessayez demain.",
-        en: "Daily code request limit reached for this number. Try again tomorrow.",
-        sw: "Kikomo cha kila siku cha maombi ya namba kimefikiwa kwa namba hii. Jaribu tena kesho.",
+        fr: "Trop de tentatives pour ce numéro. Veuillez réessayer après 10 minutes.",
+        en: "Too many attempts for this number. Please try again in 10 minutes.",
+        sw: "Majaribio mengi sana kwa namba hii. Tafadhali jaribu tena baada ya dakika 10.",
       });
     case "IP_LIMIT":
       return L({
@@ -180,11 +219,15 @@ function formatOtpError(L: (m: Tri) => string, code: string, retryAfter?: number
   }
 }
 
-function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => void; showBackToTest?: boolean } = {}) {
+function PhoneLogin({
+  onBackToTest,
+  showBackToTest,
+}: { onBackToTest?: () => void; showBackToTest?: boolean } = {}) {
   const navigate = useNavigate({ from: "/connexion" });
   const goHome = () => {
     const invite = takePendingInvite();
-    if (invite) void navigate({ to: "/rejoindre/$token", params: { token: invite }, replace: true });
+    if (invite)
+      void navigate({ to: "/rejoindre/$token", params: { token: invite }, replace: true });
     else void navigate({ to: "/", replace: true });
   };
   const { L } = useI18n();
@@ -219,7 +262,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             en: "Could not send the code",
             sw: "Imeshindwa kutuma namba",
           }),
-          { description: formatOtpError(L, res.code, res.retryAfter) }
+          { description: formatOtpError(L, res.code, res.retryAfter) },
         );
         return false;
       }
@@ -235,7 +278,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             fr: "Code envoyé par WhatsApp",
             en: "Code sent via WhatsApp",
             sw: "Namba imetumwa kwa WhatsApp",
-          })
+          }),
         );
       } else {
         toast.success(
@@ -243,7 +286,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             fr: "Code envoyé par SMS",
             en: "Code sent by SMS",
             sw: "Namba imetumwa kwa SMS",
-          })
+          }),
         );
       }
       return true;
@@ -254,7 +297,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
           en: "Could not send the code",
           sw: "Imeshindwa kutuma namba",
         }),
-        { description: translateError(error) }
+        { description: translateError(error) },
       );
       return false;
     } finally {
@@ -265,13 +308,13 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
   async function sendCode(event: React.FormEvent) {
     event.preventDefault();
     const normalized = normalizePhone(phone);
-    if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+    if (!/^243\d{9}$/.test(normalized)) {
       toast.error(
         L({
           fr: "Saisissez un numéro de téléphone valide.",
           en: "Enter a valid phone number.",
           sw: "Weka namba sahihi ya simu.",
-        })
+        }),
       );
       return;
     }
@@ -294,7 +337,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
           fr: "Saisissez le code à 6 chiffres.",
           en: "Enter the 6-digit code.",
           sw: "Weka namba ya tarakimu 6.",
-        })
+        }),
       );
       return;
     }
@@ -315,7 +358,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             en: "Invalid code",
             sw: "Namba si sahihi",
           }),
-          { description: formatOtpError(L, res.code) }
+          { description: formatOtpError(L, res.code) },
         );
         return;
       }
@@ -333,7 +376,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             en: "Failed to open session",
             sw: "Imeshindwa kufungua kipindi",
           }),
-          { description: sessionError ? translateError(sessionError) : undefined }
+          { description: sessionError ? translateError(sessionError) : undefined },
         );
         return;
       }
@@ -347,7 +390,7 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
           en: "Sign-in error",
           sw: "Hitilafu ya kuingia",
         }),
-        { description: translateError(error) }
+        { description: translateError(error) },
       );
     } finally {
       setLoading(false);
@@ -358,13 +401,25 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
     <main className="safe-top safe-bottom flex min-h-dvh items-center justify-center bg-background px-5 py-8">
       <section className="w-full max-w-sm" aria-labelledby="login-title">
         <div className="mx-auto grid size-20 place-items-center overflow-hidden rounded-2xl bg-splash shadow-card">
-          <img src={zukaLogo} alt="ZUKA PAY" width={1536} height={1707} className="h-full w-full object-cover" />
+          <img
+            src={zukaLogo}
+            alt="ZUKA PAY"
+            width={1536}
+            height={1707}
+            className="h-full w-full object-cover"
+          />
         </div>
 
         <div className="mt-7 text-center">
           <p className="font-display text-sm font-bold text-primary">ZUKA PAY</p>
           <h1 id="login-title" className="mt-2 font-display text-2xl font-bold text-foreground">
-            {step === "phone" ? L({ fr: "Connexion", en: "Sign in", sw: "Ingia" }) : L({ fr: "Vérifiez votre numéro", en: "Verify your number", sw: "Thibitisha namba yako" })}
+            {step === "phone"
+              ? L({ fr: "Connexion", en: "Sign in", sw: "Ingia" })
+              : L({
+                  fr: "Vérifiez votre numéro",
+                  en: "Verify your number",
+                  sw: "Thibitisha namba yako",
+                })}
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {step === "phone"
@@ -392,7 +447,11 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
               <span>
                 {channel === "whatsapp"
                   ? L({ fr: "Canal : WhatsApp", en: "Channel: WhatsApp", sw: "Njia: WhatsApp" })
-                  : L({ fr: "Canal : SMS de secours", en: "Channel: Backup SMS", sw: "Njia: SMS ya dharura" })}
+                  : L({
+                      fr: "Canal : SMS de secours",
+                      en: "Channel: Backup SMS",
+                      sw: "Njia: SMS ya dharura",
+                    })}
               </span>
             </div>
           )}
@@ -405,7 +464,10 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
                 {L({ fr: "Numéro de téléphone", en: "Phone number", sw: "Namba ya simu" })}
               </label>
               <div className="mt-2 flex h-13 items-center rounded-xl border border-input bg-card px-4 focus-within:ring-2 focus-within:ring-ring">
-                <Smartphone className="mr-3 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <Smartphone
+                  className="mr-3 size-5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <input
                   id="phone"
                   type="tel"
@@ -422,10 +484,17 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
           ) : (
             <>
               <label htmlFor="otp" className="text-sm font-semibold text-foreground">
-                {L({ fr: "Code de confirmation", en: "Confirmation code", sw: "Namba ya uthibitisho" })}
+                {L({
+                  fr: "Code de confirmation",
+                  en: "Confirmation code",
+                  sw: "Namba ya uthibitisho",
+                })}
               </label>
               <div className="mt-2 flex h-14 items-center rounded-xl border border-input bg-card px-4 focus-within:ring-2 focus-within:ring-ring">
-                <CheckCircle2 className="mr-3 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <CheckCircle2
+                  className="mr-3 size-5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <input
                   id="otp"
                   type="text"
@@ -441,11 +510,20 @@ function PhoneLogin({ onBackToTest, showBackToTest }: { onBackToTest?: () => voi
             </>
           )}
 
-          <Button type="submit" size="lg" disabled={loading} className="mt-5 h-12 w-full rounded-xl font-semibold">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading}
+            className="mt-5 h-12 w-full rounded-xl font-semibold"
+          >
             {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
             {step === "phone"
               ? L({ fr: "Recevoir le code", en: "Get the code", sw: "Pokea namba" })
-              : L({ fr: "Confirmer et continuer", en: "Confirm and continue", sw: "Thibitisha na uendelee" })}
+              : L({
+                  fr: "Confirmer et continuer",
+                  en: "Confirm and continue",
+                  sw: "Thibitisha na uendelee",
+                })}
           </Button>
 
           {step === "phone" && showBackToTest && onBackToTest && (
