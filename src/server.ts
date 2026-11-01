@@ -2,6 +2,10 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { initCronScheduler } from "./plugins/cron-scheduler.server";
+
+// Initialisation conditionnelle du scheduler sur les runtimes always-on
+initCronScheduler();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
