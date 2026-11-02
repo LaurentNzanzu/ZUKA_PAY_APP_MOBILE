@@ -1,4 +1,4 @@
-SELECT id, phone, attempts, max_attempts, is_used, created_at 
-FROM public.auth_otps 
-ORDER BY created_at DESC 
+SELECT id, kind, status, triggered_by, started_at, duration_ms 
+FROM public.cron_runs 
+ORDER BY started_at DESC 
 LIMIT 1;
