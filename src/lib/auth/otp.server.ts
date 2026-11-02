@@ -142,7 +142,23 @@ export async function checkAndRecordRateLimit(phone: string, ip: string): Promis
 // ─── 7. Type SendResult ─────────────────────────────────────────────────────
 export type SendResult =
   | { ok: true; channel: "whatsapp" | "sms"; messageId: string }
-  | { ok: false; error: string; retryable: boolean };
+  | { ok: false; error: string; retryable: boolean; systemError?: boolean };
+
+function isBillingOrAccountError(status: number, details: string): boolean {
+  if (status === 402 || status === 401 || status === 403) return true;
+  const upper = details.toUpperCase();
+  return (
+    upper.includes("INSUFFICIENT_BALANCE") ||
+    upper.includes("PAYMENT_REQUIRED") ||
+    upper.includes("ACCOUNT_BLOCKED") ||
+    upper.includes("NOT_ENOUGH_CREDITS") ||
+    upper.includes("NO_CREDIT") ||
+    upper.includes("BALANCE_EXCEEDED") ||
+    upper.includes("NOT_PROVISIONED") ||
+    upper.includes("EC_ACCOUNT_NOT_PROVISIONED") ||
+    upper.includes("ROUTE_NOT_AVAILABLE")
+  );
+}
 
 // ─── 8. Envoi via Infobip WhatsApp Template ──────────────────────────────────
 export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendResult> {
@@ -187,8 +203,16 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
     });
 
     if (!res.ok) {
-      const retryable = res.status !== 401 && res.status !== 403;
       const errorBody = await res.text().catch(() => "");
+      if (isBillingOrAccountError(res.status, errorBody)) {
+        return {
+          ok: false,
+          error: `PROVIDER_NO_CREDIT: ${errorBody || res.statusText}`,
+          retryable: false,
+          systemError: true,
+        };
+      }
+      const retryable = res.status !== 401 && res.status !== 403;
       return {
         ok: false,
         error: `WA_HTTP_${res.status}: ${errorBody || res.statusText}`,
@@ -216,6 +240,16 @@ export async function sendViaWhatsApp(phone: string, otp: string): Promise<SendR
     const statusName = firstMessage?.status?.name ?? "UNKNOWN";
     const groupName = firstMessage?.status?.groupName ?? "UNKNOWN";
     const description = firstMessage?.status?.description ?? firstMessage?.error?.description ?? "";
+    const fullErr = `${statusName} ${groupName} ${description}`;
+
+    if (isBillingOrAccountError(200, fullErr)) {
+      return {
+        ok: false,
+        error: `PROVIDER_NO_CREDIT: ${description || statusName}`,
+        retryable: false,
+        systemError: true,
+      };
+    }
 
     const successStates = ["PENDING", "DELIVERED", "SENT"];
     if (successStates.includes(statusName) || successStates.includes(groupName)) {
@@ -260,6 +294,15 @@ export async function sendViaSMS(phone: string, otp: string): Promise<SendResult
     });
 
     if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
+      if (isBillingOrAccountError(res.status, errorBody)) {
+        return {
+          ok: false,
+          error: `PROVIDER_NO_CREDIT: ${errorBody || res.statusText}`,
+          retryable: false,
+          systemError: true,
+        };
+      }
       const retryable = res.status !== 401 && res.status !== 403;
       return { ok: false, error: `SMS_HTTP_${res.status}`, retryable };
     }
@@ -269,6 +312,12 @@ export async function sendViaSMS(phone: string, otp: string): Promise<SendResult
         messageId?: string;
         status?: {
           groupName?: string;
+          name?: string;
+          description?: string;
+        };
+        error?: {
+          name?: string;
+          description?: string;
         };
       }>;
     };
@@ -276,12 +325,24 @@ export async function sendViaSMS(phone: string, otp: string): Promise<SendResult
     const firstMessage = data.messages?.[0];
     const messageId = firstMessage?.messageId;
     const groupName = firstMessage?.status?.groupName ?? "UNKNOWN";
+    const statusName = firstMessage?.status?.name ?? "UNKNOWN";
+    const description = firstMessage?.status?.description ?? firstMessage?.error?.description ?? "";
+    const fullErr = `${statusName} ${groupName} ${description}`;
 
-    if (groupName === "PENDING") {
+    if (isBillingOrAccountError(200, fullErr)) {
+      return {
+        ok: false,
+        error: `PROVIDER_NO_CREDIT: ${description || statusName}`,
+        retryable: false,
+        systemError: true,
+      };
+    }
+
+    if (groupName === "PENDING" || groupName === "DELIVERED" || groupName === "SENT") {
       return { ok: true, channel: "sms", messageId: messageId ?? "unknown" };
     }
 
-    return { ok: false, error: `SMS_${groupName}`, retryable: false };
+    return { ok: false, error: `SMS_${groupName}: ${description}`, retryable: false };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, retryable: true };

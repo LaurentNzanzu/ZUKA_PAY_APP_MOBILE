@@ -84,6 +84,17 @@ export const sendOtp = createServerFn({ method: "POST" })
           detail: { phone, ip },
         });
 
+        // Erreur système Infobip (facturation, compte bloqué, non approvisionné) : on stoppe net
+        if (result.systemError) {
+          await (supabaseAdmin as any).from("system_events").insert({
+            area: "otp",
+            level: "error",
+            message: "Infobip account issue: no credit or blocked",
+            detail: { phone, ip, error: result.error },
+          });
+          return { ok: false, code: "SEND_FAILED" };
+        }
+
         // Fallback conditionnel : les erreurs non-retryables (401/403, template manquant)
         // signalent une anomalie de configuration bloquante ; on évite les surcoûts SMS
         if (!result.retryable) {
@@ -102,8 +113,10 @@ export const sendOtp = createServerFn({ method: "POST" })
           await (supabaseAdmin as any).from("system_events").insert({
             area: "otp",
             level: "error",
-            message: `SMS fallback also failed: ${result.error}`,
-            detail: { phone, ip },
+            message: result.systemError
+              ? "Infobip account issue: no credit or blocked"
+              : `SMS fallback also failed: ${result.error}`,
+            detail: { phone, ip, error: result.error },
           });
           return { ok: false, code: "SEND_FAILED" };
         }
@@ -207,12 +220,17 @@ export const verifyOtp = createServerFn({ method: "POST" })
       }
 
       if (record.otp_hash !== hash) {
-        await (supabaseAdmin as any).rpc("increment_otp_attempts", {
+        const { data: newAttempts } = await (supabaseAdmin as any).rpc("increment_otp_attempts", {
           _otp_id: record.id,
           _max_attempts: maxAttempts,
         });
-        // Message neutre identique en cas de hash invalide
-        return { ok: false, code: "INVALID_OR_EXPIRED" };
+
+        // Si la limite est atteinte, on le dit clairement au client
+        if (typeof newAttempts === "number" && newAttempts >= maxAttempts) {
+          return { ok: false, code: "TOO_MANY_ATTEMPTS" as const };
+        }
+
+        return { ok: false, code: "INVALID_OR_EXPIRED" as const };
       }
 
       // Invalidation immédiate avant émission de la session pour empêcher toute réutilisation

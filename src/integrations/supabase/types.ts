@@ -379,6 +379,63 @@ export type Database = {
           },
         ]
       }
+      cron_lock: {
+        Row: {
+          acquired_at: string | null
+          kind: string
+          locked_by: string | null
+          locked_until: string | null
+        }
+        Insert: {
+          acquired_at?: string | null
+          kind: string
+          locked_by?: string | null
+          locked_until?: string | null
+        }
+        Update: {
+          acquired_at?: string | null
+          kind?: string
+          locked_by?: string | null
+          locked_until?: string | null
+        }
+        Relationships: []
+      }
+      cron_runs: {
+        Row: {
+          created_count: number | null
+          duration_ms: number | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          kind: string
+          started_at: string
+          status: string
+          triggered_by: string
+        }
+        Insert: {
+          created_count?: number | null
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind: string
+          started_at?: string
+          status?: string
+          triggered_by: string
+        }
+        Update: {
+          created_count?: number | null
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string
+        }
+        Relationships: []
+      }
       group_activity: {
         Row: {
           actor_id: string | null
@@ -1825,6 +1882,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_cron_lock: {
+        Args: {
+          _instance_id: string
+          _kind: string
+          _timeout_sec?: number
+        }
+        Returns: boolean
+      }
       apply_payment_success: {
         Args: { _reference: string }
         Returns: undefined
@@ -1856,6 +1921,13 @@ export type Database = {
       recompute_all_group_eligibility: { Args: never; Returns: number }
       recompute_group_eligibility: {
         Args: { _today?: string; _tontine_id: string }
+        Returns: undefined
+      }
+      release_cron_lock: {
+        Args: {
+          _instance_id: string
+          _kind: string
+        }
         Returns: undefined
       }
       run_group_governance: { Args: { _now?: string }; Returns: Json }

@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import zukaLogo from "@/assets/zuka-logo.png";
 import { Button } from "@/components/ui/button";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
 import { startTestSession } from "@/lib/auth/dev-login.functions";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp.functions";
@@ -182,9 +183,9 @@ function formatOtpError(L: (m: Tri) => string, code: string, retryAfter?: number
       });
     case "SEND_FAILED":
       return L({
-        fr: "Impossible d'envoyer le code pour le moment. Vérifiez votre numéro et réessayez.",
-        en: "Could not send the code at this time. Check your number and try again.",
-        sw: "Imeshindwa kutuma namba kwa sasa. Angalia namba yako kisha ujaribu tena.",
+        fr: "Le service d'envoi de code est temporairement indisponible. Veuillez contacter le support.",
+        en: "The verification code service is temporarily unavailable. Please contact support.",
+        sw: "Huduma ya kutuma namba ya uthibitisho haipatikani kwa sasa. Tafadhali wasiliana na huduma kwa wateja.",
       });
     case "INVALID_CODE_FORMAT":
       return L({
@@ -238,6 +239,7 @@ function PhoneLogin({
   const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -271,6 +273,7 @@ function PhoneLogin({
       setNormalizedPhone(targetPhone);
       setStep("code");
       setCooldown(60);
+      setIsLocked(false);
 
       if (res.channel === "whatsapp") {
         toast.success(
@@ -328,7 +331,7 @@ function PhoneLogin({
 
   async function verifyCode(event: React.FormEvent) {
     event.preventDefault();
-    if (loading) return;
+    if (loading || isLocked) return;
 
     const cleanCode = code.replace(/\D/g, "");
     if (!/^\d{6}$/.test(cleanCode)) {
@@ -352,6 +355,10 @@ function PhoneLogin({
       });
 
       if (!res.ok) {
+        if (res.code === "TOO_MANY_ATTEMPTS") {
+          setIsLocked(true);
+          setCode("");
+        }
         toast.error(
           L({
             fr: "Code invalide",
@@ -490,22 +497,26 @@ function PhoneLogin({
                   sw: "Namba ya uthibitisho",
                 })}
               </label>
-              <div className="mt-2 flex h-14 items-center rounded-xl border border-input bg-card px-4 focus-within:ring-2 focus-within:ring-ring">
-                <CheckCircle2
-                  className="mr-3 size-5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <input
+              <div className="mt-3 flex justify-center">
+                <InputOTP
                   id="otp"
-                  type="text"
+                  maxLength={6}
+                  pattern="[0-9]*"
                   inputMode="numeric"
-                  autoComplete="one-time-code"
                   value={code}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="000000"
-                  className="h-full min-w-0 flex-1 bg-transparent font-mono text-xl tracking-[0.28em] text-foreground outline-none placeholder:text-muted-foreground"
-                  required
-                />
+                  onChange={(val) => setCode(val.replace(/\D/g, ""))}
+                  disabled={isLocked || loading}
+                  autoFocus
+                >
+                  <InputOTPGroup className="gap-2 sm:gap-3">
+                    <InputOTPSlot index={0} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                    <InputOTPSlot index={1} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                    <InputOTPSlot index={2} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                    <InputOTPSlot index={3} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                    <InputOTPSlot index={4} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                    <InputOTPSlot index={5} className="h-12 w-11 rounded-xl border border-input bg-card text-lg font-bold shadow-sm sm:h-14 sm:w-12 sm:text-xl" />
+                  </InputOTPGroup>
+                </InputOTP>
               </div>
             </>
           )}
@@ -513,7 +524,7 @@ function PhoneLogin({
           <Button
             type="submit"
             size="lg"
-            disabled={loading}
+            disabled={loading || (step === "code" && isLocked)}
             className="mt-5 h-12 w-full rounded-xl font-semibold"
           >
             {loading && <LoaderCircle className="animate-spin" aria-hidden="true" />}
@@ -573,6 +584,7 @@ function PhoneLogin({
                 onClick={() => {
                   setStep("phone");
                   setCode("");
+                  setIsLocked(false);
                 }}
                 className="h-11 w-full rounded-xl text-sm"
               >
