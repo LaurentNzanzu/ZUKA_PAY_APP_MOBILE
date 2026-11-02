@@ -37,7 +37,14 @@ export type SendOtpResult =
   | {
       ok: false;
       code:
-        "INVALID_PHONE" | "COOLDOWN" | "PHONE_LIMIT" | "IP_LIMIT" | "GLOBAL_LIMIT" | "SEND_FAILED";
+        | "INVALID_PHONE"
+        | "COOLDOWN"
+        | "PHONE_LIMIT"
+        | "PHONE_10MIN_LIMIT"
+        | "DEVICE_LIMIT"
+        | "IP_LIMIT"
+        | "GLOBAL_LIMIT"
+        | "SEND_FAILED";
       retryAfter?: number;
     };
 
@@ -57,9 +64,17 @@ export type VerifyOtpResult =
 // ─── 4. Server function sendOtp (Publique, sans middleware d'auth) ───────────
 // Pas de middleware d'authentification car cet endpoint est appelé avant la connexion
 export const sendOtp = createServerFn({ method: "POST" })
-  .inputValidator((d: { phone: unknown }) => ({
-    phone: String(d?.phone ?? ""),
-  }))
+  .inputValidator((d: { phone: unknown; deviceId?: unknown }) => {
+    const deviceId = typeof d?.deviceId === "string" ? d.deviceId : "";
+    // Validation stricte pour éviter les attaques par string géante
+    const isValid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceId) ||
+      /^dev-[a-z0-9]{10,30}$/i.test(deviceId);
+    return {
+      phone: String(d?.phone ?? ""),
+      deviceId: isValid ? deviceId : "",
+    };
+  })
   .handler(async ({ data }): Promise<SendOtpResult> => {
     const phone = normalizePhone(data.phone);
     if (!phone) return { ok: false, code: "INVALID_PHONE" };
@@ -67,7 +82,7 @@ export const sendOtp = createServerFn({ method: "POST" })
     const ip = getClientIp();
 
     try {
-      await checkAndRecordRateLimit(phone, ip);
+      await checkAndRecordRateLimit(phone, ip, data.deviceId || undefined);
 
       const otp = generateSecureOTP();
       const hash = await hashOtp(otp, phone);
@@ -151,9 +166,11 @@ export const sendOtp = createServerFn({ method: "POST" })
         };
       }
 
-      if (msg === "OTP_PHONE_DAILY_LIMIT") return { ok: false, code: "PHONE_LIMIT" };
-      if (msg === "OTP_IP_RATE_LIMIT") return { ok: false, code: "IP_LIMIT" };
-      if (msg === "OTP_GLOBAL_LIMIT") return { ok: false, code: "GLOBAL_LIMIT" };
+      if (msg === "OTP_PHONE_10MIN_LIMIT") return { ok: false, code: "PHONE_10MIN_LIMIT" as const };
+      if (msg === "OTP_PHONE_DAILY_LIMIT") return { ok: false, code: "PHONE_LIMIT" as const };
+      if (msg === "OTP_DEVICE_DAILY_LIMIT") return { ok: false, code: "DEVICE_LIMIT" as const };
+      if (msg === "OTP_IP_RATE_LIMIT") return { ok: false, code: "IP_LIMIT" as const };
+      if (msg === "OTP_GLOBAL_LIMIT") return { ok: false, code: "GLOBAL_LIMIT" as const };
 
       if (msg.startsWith("MISSING_ENV_")) {
         await (supabaseAdmin as any).from("system_events").insert({

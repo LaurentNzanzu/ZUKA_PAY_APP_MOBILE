@@ -1,9 +1,9 @@
 import { runRemindersCron } from "./reminders-runner.server";
 
 const INSTANCE_ID = crypto.randomUUID();
-const FAST_PATH_FRESH_MS = 22 * 3600_000;     // 22h : skip si dernier run récent
-const DB_CHECK_MIN_INTERVAL_MS = 60_000;       // 1 min : min entre 2 vérifs DB
-const LOCK_TIMEOUT_SEC = 900;                  // 15 min : auto-release si crash
+const FAST_PATH_FRESH_MS = 22 * 3600_000; // 22h : skip si dernier run récent
+const DB_CHECK_MIN_INTERVAL_MS = 60_000; // 1 min : min entre 2 vérifs DB
+const LOCK_TIMEOUT_SEC = 900; // 15 min : auto-release si crash
 
 let lastKnownRunAt = 0;
 let lastCheckAt = 0;

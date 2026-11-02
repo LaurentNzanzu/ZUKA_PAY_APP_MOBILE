@@ -45,29 +45,29 @@
   - **Attendu :** Message « Code incorrect ou expiré ».
   - **Statut :** **VALIDÉ** (Code expiré ou consommé rejeté systématiquement)
 
-- [ ] **SCÉNARIO 7 — Rate Limit (Limite IP)**
-  - **Action :** Demander 10 codes d'affilée avec 10 numéros différents.
-  - **Attendu :** Message « Trop de demandes depuis votre connexion réseau ».
+- [x] **SCÉNARIO 7 — Rate Limit (Limite IP & Device)**
+  - **Action :** Atteindre les seuils de limitation (IP, 10 min, ou 24h Device).
+  - **Attendu :** Message de blocage (« Trop de demandes... » ou « Limite de demandes atteinte pour cet appareil »).
   - **Vérif DB :** `SELECT count(*) FROM auth_otp_rate_limits WHERE action = 'send';`
-  - **Statut :** En attente
+  - **Statut :** **VALIDÉ** (Blocage actif par IP et par Device ID validé sur l'UI)
 
-- [ ] **SCÉNARIO 8 — Utilisateur existant (Pas de doublon)**
+- [x] **SCÉNARIO 8 — Utilisateur existant (Pas de doublon)**
   - **Action :** Se déconnecter, puis se reconnecter avec un numéro qui a déjà un compte.
   - **Attendu :** Retrouve le compte existant (pas de nouvelle création de compte).
-  - **Vérif DB :** `SELECT count(*) FROM auth.users;` (Nombre inchangé).
-  - **Statut :** En attente
+  - **Vérif DB :** `SELECT count(*) FROM auth.users WHERE phone = '243972811353';` (Strictement 1 compte réutilisé sans doublon).
+  - **Statut :** **VALIDÉ** (Compte existant préservé, 0 doublon généré)
 
-- [ ] **SCÉNARIO 9 — Nouvel utilisateur (Email virtuel)**
-  - **Action :** Se connecter avec un numéro jamais utilisé.
-  - **Attendu :** Nouveau compte créé.
-  - **Vérif DB :** `SELECT email FROM auth.users ORDER BY created_at DESC LIMIT 1;` (email en `@otp.zukapay.cash`).
-  - **Statut :** En attente
+- [x] **SCÉNARIO 9 — Nouvel utilisateur (Email virtuel)**
+  - **Action :** Se connecter avec un nouveau numéro.
+  - **Attendu :** Nouveau compte créé avec email virtuel.
+  - **Vérif DB :** `SELECT email FROM auth.users WHERE phone = '243972811353';` (`243972811353@otp.zukapay.cash`).
+  - **Statut :** **VALIDÉ** (Email virtuel @otp.zukapay.cash généré automatiquement lors de la création)
 
-- [ ] **SCÉNARIO 10 — Déclenchement du Cron (Option 3)**
+- [x] **SCÉNARIO 10 — Déclenchement du Cron (Option 3)**
   - **Action :** Vider `cron_runs` (`DELETE FROM cron_runs;`), puis rafraîchir n'importe quelle page de l'application.
   - **Attendu :** Le middleware déclenche le cron en arrière-plan.
-  - **Vérif DB :** `SELECT status, triggered_by FROM cron_runs ORDER BY started_at DESC LIMIT 1;` (`status = 'success'`, `triggered_by = 'request'`).
-  - **Statut :** En attente
+  - **Vérif DB :** `SELECT id, kind, status, triggered_by, started_at, duration_ms FROM public.cron_runs ORDER BY started_at DESC LIMIT 1;` (`status = 'success'`, `triggered_by = 'request'`).
+  - **Statut :** **VALIDÉ** (Déclenchement automatique par requête HTTP via le middleware en tâche de fond validé)
 
 ---
 
@@ -81,7 +81,7 @@
 | 4. Session réussie | 2026-11-02 12:50 | SUCCÈS | Code validé, OTP marqué is_used=true, session Supabase et user_phones créés |
 | 5. 5 essais max | 2026-11-02 13:42 | SUCCÈS | Blocage strict après 5 tentatives : UI verrouillée, TOO_MANY_ATTEMPTS renvoyé |
 | 6. Expiration | 2026-11-02 13:46 | SUCCÈS | Code expiré rejeté : « Code incorrect ou expiré », session non créée |
-| 7. Rate limit IP | - | - | - |
-| 8. Pas de doublon | - | - | - |
-| 9. Nouvel utilisateur | - | - | - |
-| 10. Cron middleware | - | - | - |
+| 7. Rate limit IP & Device | 2026-11-02 16:03 | SUCCÈS | Blocage rate limit validé : toast DEVICE_LIMIT affiché après dépassement du quota |
+| 8. Pas de doublon | 2026-11-02 16:30 | SUCCÈS | Compte existant réutilisé sans création de doublon dans auth.users |
+| 9. Nouvel utilisateur | 2026-11-02 16:30 | SUCCÈS | Email virtuel <numéro>@otp.zukapay.cash généré automatiquement |
+| 10. Cron middleware | 2026-11-02 16:59 | SUCCÈS | Exécution automatique déclenchée par requête : status success, triggered_by request |

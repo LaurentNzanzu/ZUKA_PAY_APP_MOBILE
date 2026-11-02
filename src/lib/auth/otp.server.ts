@@ -71,7 +71,11 @@ export function normalizePhone(raw: string): string | null {
 }
 
 // ─── 6. Vérification & enregistrement des limites de débit ───────────────────
-export async function checkAndRecordRateLimit(phone: string, ip: string): Promise<void> {
+export async function checkAndRecordRateLimit(
+  phone: string,
+  ip: string,
+  deviceId?: string,
+): Promise<void> {
   const cooldownSeconds = OTP_CONFIG.cooldownSeconds();
   if (cooldownSeconds > 0) {
     const { data: latestOtp } = await (supabaseAdmin as any)
@@ -91,6 +95,20 @@ export async function checkAndRecordRateLimit(phone: string, ip: string): Promis
     }
   }
 
+  // Règle 1 : Max 3 envois par téléphone sur 10 minutes
+  const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { count: phone10mCount } = await (supabaseAdmin as any)
+    .from("auth_otp_rate_limits")
+    .select("id", { count: "exact", head: true })
+    .eq("phone", phone)
+    .eq("action", "send")
+    .gte("created_at", tenMinAgo);
+
+  if ((phone10mCount ?? 0) >= 3) {
+    throw new Error("OTP_PHONE_10MIN_LIMIT");
+  }
+
+  // Règle 2 : Max 5 envois par téléphone sur 24 heures
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count: phoneCount } = await (supabaseAdmin as any)
     .from("auth_otp_rate_limits")
@@ -101,6 +119,20 @@ export async function checkAndRecordRateLimit(phone: string, ip: string): Promis
 
   if ((phoneCount ?? 0) >= OTP_CONFIG.maxPerPhonePerDay()) {
     throw new Error("OTP_PHONE_DAILY_LIMIT");
+  }
+
+  // Règle 3 : Max 5 envois par Device ID sur 24 heures
+  if (deviceId) {
+    const { count: deviceCount } = await (supabaseAdmin as any)
+      .from("auth_otp_rate_limits")
+      .select("id", { count: "exact", head: true })
+      .eq("device_id", deviceId)
+      .eq("action", "send")
+      .gte("created_at", oneDayAgo);
+
+    if ((deviceCount ?? 0) >= 5) {
+      throw new Error("OTP_DEVICE_DAILY_LIMIT");
+    }
   }
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -135,6 +167,7 @@ export async function checkAndRecordRateLimit(phone: string, ip: string): Promis
   await (supabaseAdmin as any).from("auth_otp_rate_limits").insert({
     ip_address: ip,
     phone,
+    device_id: deviceId || null,
     action: "send",
   });
 }
@@ -156,7 +189,9 @@ function isBillingOrAccountError(status: number, details: string): boolean {
     upper.includes("BALANCE_EXCEEDED") ||
     upper.includes("NOT_PROVISIONED") ||
     upper.includes("EC_ACCOUNT_NOT_PROVISIONED") ||
-    upper.includes("ROUTE_NOT_AVAILABLE")
+    upper.includes("ROUTE_NOT_AVAILABLE") ||
+    upper.includes("DESTINATION_NOT_REGISTERED") ||
+    upper.includes("REJECTED_DESTINATION")
   );
 }
 

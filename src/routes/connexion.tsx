@@ -16,6 +16,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { supabase } from "@/integrations/supabase/client";
 import { startTestSession } from "@/lib/auth/dev-login.functions";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp.functions";
+import { getOrCreateDeviceId } from "@/lib/utils/device";
 import { isTestAccessHost, TEST_ACCESS_ENABLED } from "@/lib/auth/test-access";
 import { takePendingInvite } from "@/lib/tontines/pendingInvite";
 
@@ -165,9 +166,21 @@ function formatOtpError(L: (m: Tri) => string, code: string, retryAfter?: number
       });
     case "PHONE_LIMIT":
       return L({
-        fr: "Trop de tentatives pour ce numéro. Veuillez réessayer après 10 minutes.",
-        en: "Too many attempts for this number. Please try again in 10 minutes.",
-        sw: "Majaribio mengi sana kwa namba hii. Tafadhali jaribu tena baada ya dakika 10.",
+        fr: "Trop de tentatives pour ce numéro aujourd'hui. Veuillez réessayer dans 24 heures.",
+        en: "Too many attempts for this number today. Please try again in 24 hours.",
+        sw: "Majaribio mengi sana kwa namba hii leo. Tafadhali jaribu tena baada ya saa 24.",
+      });
+    case "PHONE_10MIN_LIMIT":
+      return L({
+        fr: "Trop de tentatives pour ce numéro. Patientez 10 minutes.",
+        en: "Too many attempts for this number. Wait 10 minutes.",
+        sw: "Majaribio mengi. Subiri dakika 10.",
+      });
+    case "DEVICE_LIMIT":
+      return L({
+        fr: "Limite de demandes atteinte pour cet appareil. Réessayez dans 24h.",
+        en: "Device daily limit reached. Try again in 24h.",
+        sw: "Kikomo cha kifaa kimefikiwa. Jaribu tena baada ya saa 24.",
       });
     case "IP_LIMIT":
       return L({
@@ -253,7 +266,8 @@ function PhoneLogin({
     if (loading) return false;
     setLoading(true);
     try {
-      const res = await sendOtp({ data: { phone: targetPhone } });
+      const deviceId = getOrCreateDeviceId();
+      const res = await sendOtp({ data: { phone: targetPhone, deviceId } });
       if (!res.ok) {
         if (res.code === "COOLDOWN" && res.retryAfter) {
           setCooldown(res.retryAfter);
