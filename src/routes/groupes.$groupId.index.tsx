@@ -95,7 +95,7 @@ function GroupPage() {
           </h1>
           <div className="mt-1 flex items-end gap-2">
             <span className="font-display text-[46px] leading-none text-primary-foreground">
-              {new Intl.NumberFormat("fr-FR").format(totals.collected)}
+              <Money value={totals.collected} currency={group.currency} />
             </span>
             <span className="mb-2 font-mono text-sm text-primary-foreground/70">
               / <Money value={totals.expected} currency={group.currency} />

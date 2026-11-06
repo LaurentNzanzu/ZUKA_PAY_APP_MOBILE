@@ -126,7 +126,8 @@ export async function runRemindersCron(): Promise<{ ok: true; created: number }>
           .update({ status: "late" })
           .eq("period_id", p.id)
           .neq("status", "paid")
-          .lt("amount_paid", 1e12);
+          .neq("status", "partial")
+          .eq("amount_paid", 0);
     }
   }
 

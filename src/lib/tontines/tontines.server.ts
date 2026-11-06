@@ -96,7 +96,7 @@ export async function reassignBeneficiaryOrder(tontineId: string) {
 /** Rebuilds the client-side Group shape from the relational tables. */
 export async function assembleGroups(tontineIds: string[], userId: string): Promise<Group[]> {
   if (!tontineIds.length) return [];
-  const [tontines, members, periods, contributions, swaps, votes, responses, activity, txs, penalties] =
+  const [tontines, members, periods, contributions, swaps, votes, activity, txs, penalties] =
     await Promise.all([
       supabaseAdmin.from("tontines").select("*").in("id", tontineIds),
       supabaseAdmin.from("tontine_members").select("*").in("tontine_id", tontineIds),
@@ -104,7 +104,6 @@ export async function assembleGroups(tontineIds: string[], userId: string): Prom
       supabaseAdmin.from("contributions").select("*").in("tontine_id", tontineIds),
       supabaseAdmin.from("beneficiary_swaps").select("*").in("tontine_id", tontineIds),
       supabaseAdmin.from("group_votes").select("*").in("tontine_id", tontineIds),
-      supabaseAdmin.from("vote_responses").select("*"),
       supabaseAdmin
         .from("group_activity")
         .select("*")
@@ -114,6 +113,12 @@ export async function assembleGroups(tontineIds: string[], userId: string): Prom
       supabaseAdmin.from("payment_transactions").select("*").in("group_ref", tontineIds),
       supabaseAdmin.from("late_penalties").select("*").in("tontine_id", tontineIds),
     ]);
+
+  // Charge UNIQUEMENT les réponses des votes concernés (Optimisation O(N))
+  const voteIds = (votes.data ?? []).map((v) => v.id);
+  const responses = voteIds.length
+    ? await supabaseAdmin.from("vote_responses").select("*").in("vote_id", voteIds)
+    : { data: [], error: null };
 
   const byGroup = <T extends { tontine_id: string }>(rows: T[] | null, id: string) =>
     (rows ?? []).filter((r) => r.tontine_id === id);
