@@ -19,9 +19,13 @@ export const getAdminSession = createServerFn({ method: "GET" })
     const userId = context.userId;
     const email = emailOf(context.claims);
 
-    await supabaseAdmin
-      .from("profiles")
-      .upsert({ id: userId, email, last_seen_at: new Date().toISOString() }, { onConflict: "id" });
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("last_seen_at").eq("id", userId).maybeSingle();
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    if (!profile?.last_seen_at || profile.last_seen_at < fiveMinAgo) {
+      await supabaseAdmin.from("profiles")
+        .upsert({ id: userId, email, last_seen_at: new Date().toISOString() }, { onConflict: "id" });
+    }
 
     const [{ data: roles }, { data: perms }, { data: account }, { count: superCount }] =
       await Promise.all([
@@ -49,7 +53,7 @@ export const getAdminSession = createServerFn({ method: "GET" })
         .eq("user_id", userId);
     }
 
-    const { data: profile } = await supabaseAdmin
+    const { data: userProfile } = await supabaseAdmin
       .from("profiles")
       .select("full_name")
       .eq("id", userId)
@@ -58,7 +62,7 @@ export const getAdminSession = createServerFn({ method: "GET" })
     return {
       userId,
       email,
-      fullName: profile?.full_name ?? null,
+      fullName: userProfile?.full_name ?? null,
       role,
       status,
       permissions: (perms ?? []).map((p) => p.permission),
@@ -76,18 +80,14 @@ export const bootstrapSuperAdmin = createServerFn({ method: "POST" })
     const email = emailOf(context.claims);
     if (!email) throw new Error("EMAIL_REQUIRED");
 
-    const { count } = await supabaseAdmin
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "super_admin");
-    if ((count ?? 0) > 0) throw new Error("ALREADY_BOOTSTRAPPED");
+    const { data: ok, error } = await supabaseAdmin.rpc("bootstrap_super_admin" as never, {
+      _user_id: context.userId,
+      _email: email,
+    } as never);
+    
+    if (error) throw new Error(error.message);
+    if (!ok) throw new Error("ALREADY_BOOTSTRAPPED");
 
-    await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: context.userId, role: "super_admin", granted_by: context.userId });
-    await supabaseAdmin
-      .from("admin_accounts")
-      .upsert({ user_id: context.userId, email, status: "active" }, { onConflict: "user_id" });
     await audit({
       actorId: context.userId,
       actorEmail: email,
@@ -666,20 +666,13 @@ export const testProvider = createServerFn({ method: "POST" })
 export const listTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin, requirePermission, audit, clientIp } = await import("./admin.server");
+    const { supabaseAdmin, requirePermission } = await import("./admin.server");
     await requirePermission(context.userId, "transactions.view");
     const { data } = await supabaseAdmin
       .from("payment_transactions")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(200);
-    await audit({
-      actorId: context.userId,
-      actorEmail: emailOf(context.claims),
-      action: "transactions.viewed",
-      entityType: "payment_transaction",
-      ip: clientIp(getRequest().headers),
-    });
     return data ?? [];
   });
 
