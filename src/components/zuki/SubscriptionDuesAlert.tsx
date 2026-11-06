@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Money } from "./Money";
+import type { Currency } from "@/lib/zuki/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Lock } from "lucide-react";
@@ -32,7 +34,7 @@ export function SubscriptionDuesAlert() {
               : L("Abonnement du groupe non payé", "Group subscription unpaid", "Usajili wa kikundi haujalipwa")}
           </p>
           <p className="text-xs opacity-90">
-            {d.groupName} · {d.amount} {d.currency} · {formatDate(d.dueDate)}
+            {d.groupName} · <Money value={d.amount} currency={d.currency as Currency} /> · {formatDate(d.dueDate)}
           </p>
           <button
             onClick={() => setPaying(d)}

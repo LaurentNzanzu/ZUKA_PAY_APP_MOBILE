@@ -66,6 +66,11 @@ export async function runRemindersCron(): Promise<{ ok: true; created: number }>
           Number(tontine.late_penalty_amount) > 0
         ) {
           const pen = Number(tontine.late_penalty_amount);
+          // Calcule le vrai nombre de jours de retard (minimum 1 jour)
+          const daysLate = Math.max(
+            1,
+            Math.round((Date.now() - new Date(p.due_date).getTime()) / 86_400_000)
+          );
           const { error: penErr } = await supabaseAdmin.from("late_penalties").insert({
             tontine_id: p.tontine_id,
             contribution_id: c.id,
@@ -74,7 +79,7 @@ export async function runRemindersCron(): Promise<{ ok: true; created: number }>
             amount: pen,
             currency: tontine.currency ?? "CDF",
             due_date: p.due_date,
-            days_late: 1,
+            days_late: daysLate,
           });
           if (!penErr) {
             const rest0 = Number(c.amount_due) - Number(c.amount_paid);
