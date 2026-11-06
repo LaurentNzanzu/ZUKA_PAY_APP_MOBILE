@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Money } from "./Money";
+import type { Currency } from "@/lib/zuki/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle } from "lucide-react";
@@ -31,7 +33,8 @@ export function DisputesAlert() {
             {disputes.map((d, i) => (
               <li key={d.kind + d.id} className="rounded-xl bg-background p-3 text-sm">
                 <p className="font-semibold">
-                  {i + 1}. {d.label.toUpperCase()} — {d.amount} {d.currency}
+                  {i + 1}. {d.label.toUpperCase()} —{" "}
+                  <Money value={d.amount} currency={d.currency as Currency} />
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {d.groupName} · {formatDate(d.since)} · {L("Destinataire", "Recipient", "Mpokeaji")} : {d.destination}

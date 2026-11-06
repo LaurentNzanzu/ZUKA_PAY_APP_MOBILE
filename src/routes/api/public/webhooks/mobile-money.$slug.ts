@@ -34,8 +34,9 @@ export const Route = createFileRoute("/api/public/webhooks/mobile-money/$slug")(
         const body = await request.text();
         const signature = request.headers.get("x-signature") ?? "";
         const expected = createHmac("sha256", secret).update(body).digest("hex");
-        const sig = Buffer.from(signature);
-        const exp = Buffer.from(expected);
+        const sig = Buffer.from(signature, "hex");
+        const exp = Buffer.from(expected, "hex");
+        if (sig.length !== exp.length) return new Response("Invalid signature", { status: 401 });
         const valid = sig.length === exp.length && timingSafeEqual(sig, exp);
         if (!valid) return new Response("Invalid signature", { status: 401 });
 

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Money } from "./Money";
+import type { Currency } from "@/lib/zuki/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -152,7 +154,7 @@ export function GroupGovernance({ tontineId }: { tontineId: string }) {
             <div key={r.id} className="rounded-xl bg-background p-3 text-xs">
               <p>
                 <HandCoins className="mr-1 inline size-3" />
-                {r.payerName} → {r.debtorName} · {r.amount} {r.currency} · <b>{r.status}</b>
+                {r.payerName} → {r.debtorName} · <Money value={r.amount} currency={r.currency as Currency} /> · <b>{r.status}</b>
               </p>
               {r.approvalRef && <p className="font-mono text-muted-foreground">{r.approvalRef}</p>}
               {r.status === "pending" && canApprove && !r.mine && (
@@ -207,7 +209,7 @@ export function GroupGovernance({ tontineId }: { tontineId: string }) {
         >
           {paying.penalty > 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {L("La pénalité de retard", "The late penalty", "Adhabu")} ({paying.penalty} {paying.currency}) {L("reste à la charge du membre en retard.", "stays with the late member.", "inabaki kwa aliyechelewa.")}
+              {L("La pénalité de retard", "The late penalty", "Adhabu")} (<Money value={paying.penalty} currency={paying.currency as Currency} />) {L("reste à la charge du membre en retard.", "stays with the late member.", "inabaki kwa aliyechelewa.")}
             </p>
           )}
           <label className="mt-3 flex items-center gap-2 text-sm">
@@ -231,7 +233,7 @@ export function GroupGovernance({ tontineId }: { tontineId: string }) {
               )}
               {rateInvalid && <p className="text-xs text-destructive">{L("Taux maximum : 8 %.", "Maximum rate: 8%.", "Kiwango cha juu: 8%.")}</p>}
               <p className="text-xs">
-                {paying.amount} + {interest} ({effRate} %) = <b>{Math.round((paying.amount + interest) * 100) / 100} {paying.currency}</b>
+                <Money value={paying.amount} currency={paying.currency as Currency} /> + {interest} ({effRate} %) = <b><Money value={Math.round((paying.amount + interest) * 100) / 100} currency={paying.currency as Currency} /></b>
               </p>
             </div>
           )}

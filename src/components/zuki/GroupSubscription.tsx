@@ -1,4 +1,6 @@
 import { translateError } from "@/lib/i18n/errors";
+import { Money } from "./Money";
+import type { Currency } from "@/lib/zuki/types";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -130,7 +132,7 @@ export function GroupSubscription({ tontineId }: { tontineId: string }) {
         <div className="mb-3 rounded-2xl bg-coral p-4 text-coral-foreground">
           <p className="text-sm font-bold">{L("Abonnement du groupe non payé", "Group subscription unpaid", "Usajili wa kikundi haujalipwa")}</p>
           <p className="text-xs opacity-90">
-            {Number(open.price_locked)} {open.currency} · {L("échéance", "due", "tarehe")} {formatDate(open.due_date!)}
+            <Money value={Number(open.price_locked)} currency={open.currency as Currency} /> · {L("échéance", "due", "tarehe")} {formatDate(open.due_date!)}
           </p>
         </div>
       )}
@@ -187,7 +189,7 @@ export function GroupSubscription({ tontineId }: { tontineId: string }) {
           {open && (
             <>
               <dt className="text-muted-foreground">{L("Montant", "Amount", "Kiasi")}</dt>
-              <dd className="font-semibold">{Number(open.price_locked)} {open.currency}</dd>
+              <dd className="font-semibold"><Money value={Number(open.price_locked)} currency={open.currency as Currency} /></dd>
             </>
           )}
         </dl>
