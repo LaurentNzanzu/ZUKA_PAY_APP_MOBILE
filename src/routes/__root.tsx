@@ -125,7 +125,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('zuki.theme');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.dataset.theme='dark';document.documentElement.style.colorScheme='dark'}}catch(e){}",
+              "try{var t=localStorage.getItem('zuki.theme');if(t==='dark'){var r=document.documentElement;r.classList.add('dark');r.dataset.theme='dark';r.style.colorScheme='dark'}}catch(e){}",
           }}
         />
         <HeadContent />

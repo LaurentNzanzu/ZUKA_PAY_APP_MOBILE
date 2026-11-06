@@ -1,13 +1,10 @@
-/** Temporary access for the local editor and private preview only; never the published site nor a native app. */
-export const TEST_ACCESS_ENABLED = true;
-
-function isNativeShell(): boolean {
-  if (typeof window === "undefined") return false;
-  const cap = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-  return Boolean(cap?.isNativePlatform?.());
-}
+export const TEST_ACCESS_ENABLED = 
+  // Barrière 1 : Jamais en production, peu importe la variable d'env
+  (typeof process !== "undefined" && process.env["NODE_ENV"] !== "production") &&
+  // Barrière 2 : Nécessite l'activation explicite via variable d'environnement
+  import.meta.env["VITE_TEST_ACCESS_ENABLED"] === "true";
 
 export function isTestAccessHost(hostname: string): boolean {
-  if (isNativeShell()) return false;
+  if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) return false;
   return hostname === "localhost" || hostname === "127.0.0.1" || /^id-preview--[0-9a-f-]+\.lovable\.app$/.test(hostname);
 }

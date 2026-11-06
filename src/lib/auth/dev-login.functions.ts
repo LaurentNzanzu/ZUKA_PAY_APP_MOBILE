@@ -10,6 +10,11 @@ import { isTestAccessHost, TEST_ACCESS_ENABLED } from "./test-access";
  */
 export const startTestSession = createServerFn({ method: "POST" })
   .handler(async () => {
+    // DOUBLE BARRIÈRE SERVEUR ABSOLUE
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("Accès de test strictement interdit en production.");
+    }
+    
     const request = getRequest();
     if (!TEST_ACCESS_ENABLED || !isTestAccessHost(new URL(request.url).hostname)) {
       throw new Error("Accès de test indisponible sur ce site.");

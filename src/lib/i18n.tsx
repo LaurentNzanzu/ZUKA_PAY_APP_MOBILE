@@ -7,8 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { BUILTIN, findLanguage, matchDeviceLanguage } from "@/lib/i18n/languages";
-import { DomTranslator } from "@/lib/i18n/DomTranslator";
+import { findLanguage, matchDeviceLanguage } from "@/lib/i18n/languages";
 
 export type Lang = "fr" | "en" | "sw";
 export const LANGS: { code: Lang; label: string }[] = [
@@ -851,7 +850,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   return (
     <I18nContext.Provider value={value}>
       {children}
-      {!BUILTIN.has(uiLang) && <DomTranslator lang={uiLang} />}
     </I18nContext.Provider>
   );
 }

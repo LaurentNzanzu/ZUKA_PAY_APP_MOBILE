@@ -98,7 +98,7 @@ export function statusFor(group: Group, dueId: string, memberId: string): Contri
   if (paid >= group.amount) return "paid";
   if (!due) return "pending";
   const overdue = due.date < todayISO();
-  if (paid > 0) return overdue || due.date === todayISO() ? "partial" : "partial";
+  if (paid > 0) return "partial";
   return overdue ? "late" : "pending";
 }
 
